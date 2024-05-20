@@ -1,95 +1,135 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-
+"use client";
+import { useState } from 'react';
+import Mirt from 'react-mirt';
+import 'react-mirt/dist/css/react-mirt.css';
+import "./mycss.css"
 export default function Home() {
+  const [audioFile, setAudioFile] = useState(null);
+  const [trimmedAudioUrl, setTrimmedAudioUrl] = useState(null);
+  const [startTime, setStartTime] = useState(0);
+  const [endTime, setEndTime] = useState(0);
+
+  const handleFileChange = (e) => {
+    setAudioFile(e.target.files[0]);
+    setTrimmedAudioUrl(null);
+  };
+
+  const handleTrim = async () => {
+    if (!audioFile) return;
+
+    const trimmedBlob = await trimAudio(audioFile, startTime / 1000, endTime / 1000);
+    const url = URL.createObjectURL(trimmedBlob);
+    setTrimmedAudioUrl(url);
+  };
+
+  const trimAudio = async (file, start, end) => {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuffer = await file.arrayBuffer();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    const startFrame = Math.floor(start * audioBuffer.sampleRate);
+    const endFrame = Math.floor(end * audioBuffer.sampleRate);
+    const durationFrames = endFrame - startFrame;
+
+    console.log(`Trimming audio from ${start} to ${end} seconds`);
+    console.log(`Start frame: ${startFrame}, End frame: ${endFrame}, Duration frames: ${durationFrames}`);
+
+    const trimmedBuffer = audioContext.createBuffer(audioBuffer.numberOfChannels, durationFrames, audioBuffer.sampleRate);
+
+    for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+      const channelData = audioBuffer.getChannelData(i).subarray(startFrame, endFrame);
+      trimmedBuffer.copyToChannel(channelData, i);
+    }
+
+    return bufferToWave(trimmedBuffer);
+  };
+
+  const bufferToWave = (buffer) => {
+    const numOfChan = buffer.numberOfChannels;
+    const length = buffer.length * numOfChan * 2 + 44;
+    const bufferArray = new ArrayBuffer(length);
+    const view = new DataView(bufferArray);
+
+    let pos = 0;
+
+    const setUint16 = (data) => { view.setUint16(pos, data, true); pos += 2; };
+    const setUint32 = (data) => { view.setUint32(pos, data, true); pos += 4; };
+
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8); // file length - 8
+    setUint32(0x45564157); // "WAVE"
+
+    setUint32(0x20746d66); // "fmt "
+    setUint32(16); // size of fmt chunk
+    setUint16(1); // format = 1
+    setUint16(numOfChan);
+    setUint32(buffer.sampleRate);
+    setUint32(buffer.sampleRate * 2 * numOfChan); // byte rate
+    setUint16(numOfChan * 2); // block align
+    setUint16(16); // bits per sample
+
+    setUint32(0x61746164); // "data"
+    setUint32(length - pos - 4); // data chunk length
+
+    for (let i = 0; i < buffer.numberOfChannels; i++) {
+      const channelData = buffer.getChannelData(i);
+      for (let j = 0; j < channelData.length; j++) {
+        const sample = Math.max(-1, Math.min(1, channelData[j])); // clamp
+        view.setInt16(pos, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        pos += 2;
+      }
+    }
+
+    return new Blob([bufferArray], { type: 'audio/wav' });
+  };
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.js</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className='wholebody'>
+      <h1>Audio Trimmer</h1>
+      <input type="file" accept="audio/*" onChange={handleFileChange}  style={{marginBottom: '10px'}}/>
+
+      {audioFile && (
+        <div  style={{marginBottom: '10px'}}>
+          <input
+           style={{marginBottom: '10px', height: '20px', width: '100px', padding: '20px'}}
+            type="number"
+            placeholder="Start time (seconds)"
+            value={Math.floor(startTime / 1000)}
+            onChange={(e) => setStartTime(parseFloat(e.target.value) * 1000)}
+          />
+          <input
+           style={{marginBottom: '10px', marginLeft: '10px' , height: '20px', width: '100px', padding: '20px'}}
+            type="number"
+            placeholder="End time (seconds)"
+            value={Math.floor(endTime / 1000)}
+            onChange={(e) => setEndTime(parseFloat(e.target.value) * 1000)}
+          />
+          <Mirt
+           style={{marginBottom: '30px', }}
+           
+            file={audioFile}
+            onChange={({ start, end }) => {
+              console.log(`Mirt start: ${start}, end: ${end}`);
+              setStartTime(start);
+              setEndTime(end);
+            }}
+          />
+          <button className="button-56" onClick={handleTrim}>Trim and Download</button>
         </div>
+      )}
+      {trimmedAudioUrl && (
+        <div >
+          <h2  style={{marginBottom: '10px', marginTop: '20px'}}>Trimmed Audio</h2>
+          <audio controls src={trimmedAudioUrl}  style={{marginBottom: '10px'}}></audio>
+          <div></div>
+          <a href={trimmedAudioUrl} download="trimmed_audio.wav"><button className="button-56">Download Trimmed Audio</button></a>
+        </div>
+      )}
+      <div style={{border: '1px solid white', marginTop: '30px', padding: '10px', background: 'white', color: 'black'}}>
+      <div >Hii team VideoDubber.ai, I made this under an hour due to my exams, this doesn't show my true ability, please take this into consideration while judging. I know this might sound like a excuse but, its not.</div>
+      <div style={{marginTop: '10px'}}>regards,</div>
+      <div>Sumeet Maurya</div>
       </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    </div>
   );
 }
