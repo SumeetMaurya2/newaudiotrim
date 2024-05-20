@@ -135,7 +135,7 @@ export default function Home() {
         </div>
       )}
       <div style={{ border: '1px solid white', marginTop: '30px', padding: '10px', background: 'white', color: 'black' }}>
-        <div>Hi team VideoDubber.ai, I made this under an hour due to my exams, this doesn't show my true ability, please take this into consideration while judging. I know this might sound like an excuse but, it's not.</div>
+        <div>Hi team VideoDubber.ai, I made this under an hour due to my exams, this doesn&rsquo;t show my true ability, please take this into consideration while judging. I know this might sound like an excuse but, it&rsquo;s not.</div>
         <div style={{ marginTop: '10px' }}>Regards,</div>
         <div>Sumeet Maurya</div>
       </div>
