@@ -2,24 +2,38 @@
 import { useState } from 'react';
 import Mirt from 'react-mirt';
 import 'react-mirt/dist/css/react-mirt.css';
-import "./mycss.css"
+import "./mycss.css";
+
 export default function Home() {
   const [audioFile, setAudioFile] = useState(null);
   const [trimmedAudioUrl, setTrimmedAudioUrl] = useState(null);
   const [startTime, setStartTime] = useState(0);
   const [endTime, setEndTime] = useState(0);
+  const [error, setError] = useState(null);
 
   const handleFileChange = (e) => {
     setAudioFile(e.target.files[0]);
     setTrimmedAudioUrl(null);
+    setError(null);
   };
 
   const handleTrim = async () => {
-    if (!audioFile) return;
+    if (!audioFile) {
+      setError("Please select an audio file.");
+      return;
+    }
+    if (endTime <= startTime) {
+      setError("End time must be greater than start time.");
+      return;
+    }
 
-    const trimmedBlob = await trimAudio(audioFile, startTime / 1000, endTime / 1000);
-    const url = URL.createObjectURL(trimmedBlob);
-    setTrimmedAudioUrl(url);
+    try {
+      const trimmedBlob = await trimAudio(audioFile, startTime / 1000, endTime / 1000);
+      const url = URL.createObjectURL(trimmedBlob);
+      setTrimmedAudioUrl(url);
+    } catch (err) {
+      setError("Failed to trim the audio. Please try again.");
+    }
   };
 
   const trimAudio = async (file, start, end) => {
@@ -30,9 +44,6 @@ export default function Home() {
     const startFrame = Math.floor(start * audioBuffer.sampleRate);
     const endFrame = Math.floor(end * audioBuffer.sampleRate);
     const durationFrames = endFrame - startFrame;
-
-    console.log(`Trimming audio from ${start} to ${end} seconds`);
-    console.log(`Start frame: ${startFrame}, End frame: ${endFrame}, Duration frames: ${durationFrames}`);
 
     const trimmedBuffer = audioContext.createBuffer(audioBuffer.numberOfChannels, durationFrames, audioBuffer.sampleRate);
 
@@ -86,30 +97,28 @@ export default function Home() {
   return (
     <div className='wholebody'>
       <h1>Audio Trimmer</h1>
-      <input type="file" accept="audio/*" onChange={handleFileChange}  style={{marginBottom: '10px'}}/>
+      <input type="file" accept="audio/*" onChange={handleFileChange} style={{ marginBottom: '10px' }} />
 
       {audioFile && (
-        <div  style={{marginBottom: '10px'}}>
+        <div style={{ marginBottom: '10px' }}>
           <input
-           style={{marginBottom: '10px', height: '20px', width: '100px', padding: '20px'}}
+            style={{ marginBottom: '10px', height: '20px', width: '100px', padding: '20px' }}
             type="number"
             placeholder="Start time (seconds)"
             value={Math.floor(startTime / 1000)}
             onChange={(e) => setStartTime(parseFloat(e.target.value) * 1000)}
           />
           <input
-           style={{marginBottom: '10px', marginLeft: '10px' , height: '20px', width: '100px', padding: '20px'}}
+            style={{ marginBottom: '10px', marginLeft: '10px', height: '20px', width: '100px', padding: '20px' }}
             type="number"
             placeholder="End time (seconds)"
             value={Math.floor(endTime / 1000)}
             onChange={(e) => setEndTime(parseFloat(e.target.value) * 1000)}
           />
           <Mirt
-           style={{marginBottom: '30px', }}
-           
+            style={{ marginBottom: '30px' }}
             file={audioFile}
             onChange={({ start, end }) => {
-              console.log(`Mirt start: ${start}, end: ${end}`);
               setStartTime(start);
               setEndTime(end);
             }}
@@ -117,18 +126,18 @@ export default function Home() {
           <button className="button-56" onClick={handleTrim}>Trim and Download</button>
         </div>
       )}
+      {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
       {trimmedAudioUrl && (
-        <div >
-          <h2  style={{marginBottom: '10px', marginTop: '20px'}}>Trimmed Audio</h2>
-          <audio controls src={trimmedAudioUrl}  style={{marginBottom: '10px'}}></audio>
-          <div></div>
+        <div>
+          <h2 style={{ marginBottom: '10px', marginTop: '20px' }}>Trimmed Audio</h2>
+          <audio controls src={trimmedAudioUrl} style={{ marginBottom: '10px' }}></audio>
           <a href={trimmedAudioUrl} download="trimmed_audio.wav"><button className="button-56">Download Trimmed Audio</button></a>
         </div>
       )}
-      <div style={{border: '1px solid white', marginTop: '30px', padding: '10px', background: 'white', color: 'black'}}>
-      <div >Hii team VideoDubber.ai, I made this under an hour due to my exams, this doesn't show my true ability, please take this into consideration while judging. I know this might sound like a excuse but, its not.</div>
-      <div style={{marginTop: '10px'}}>regards,</div>
-      <div>Sumeet Maurya</div>
+      <div style={{ border: '1px solid white', marginTop: '30px', padding: '10px', background: 'white', color: 'black' }}>
+        <div>Hi team VideoDubber.ai, I made this under an hour due to my exams, this doesn't show my true ability, please take this into consideration while judging. I know this might sound like an excuse but, it's not.</div>
+        <div style={{ marginTop: '10px' }}>Regards,</div>
+        <div>Sumeet Maurya</div>
       </div>
     </div>
   );
